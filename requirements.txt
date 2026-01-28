@@ -1,0 +1,55 @@
+# Core Framework
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-multipart==0.0.6
+websockets==12.0
+
+# Multi-Agent Orchestration
+langgraph==0.0.20
+langchain==0.1.4
+langchain-community==0.0.16
+langchain-groq==0.0.1
+
+# LLM Provider 
+groq==0.4.1
+
+# Audio Processing 
+requests==2.31.0
+pydub==0.25.1
+ffmpeg-python==0.2.0
+
+# OCR & Image Processing
+pytesseract==0.3.10
+easyocr==1.7.1
+Pillow==10.2.0
+opencv-python==4.9.0.80
+
+# PDF Processing
+PyPDF2==3.0.1
+pdfplumber==0.10.3
+pdf2image==1.16.3
+
+# YouTube Transcripts
+youtube-transcript-api==0.6.2
+
+# RAG & Vector Store
+chromadb==0.4.22
+sentence-transformers==2.3.1
+transformers==4.36.2
+huggingface-hub==0.20.2
+tiktoken==0.5.2
+
+# Utilities
+python-dotenv==1.0.0
+pydantic==2.5.3
+pydantic-settings==2.1.0
+
+# Testing
+pytest==7.4.4
+pytest-asyncio==0.23.3
+httpx==0.26.0
+
+# Code Quality
+black==24.1.1
+flake8==7.0.0
+mypy==1.8.0
