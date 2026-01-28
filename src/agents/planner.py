@@ -214,6 +214,12 @@ SUPPORTED TASKS:
 - question_answer: Answer specific questions about content
 - general_chat: Casual conversation, greetings, help requests
 
+IMPORTANT RULES:
+1. If user request is ambiguous (e.g., "analyze", "check this", "do something"), return confidence < 0.5
+2. If multiple tasks are equally plausible, list them in possible_intents and return confidence < 0.7
+3. Only return high confidence (>0.7) if the request EXPLICITLY mentions the task
+4. "Analyze" without context is ALWAYS ambiguous - could be sentiment, summary, or other tasks
+
 FEW-SHOT EXAMPLES:
 
 Example 1:
@@ -233,8 +239,8 @@ Input: "What does this say?" [with image]
 Output: {{"intent": "text_extraction", "confidence": 0.8, "reasoning": "Simple extraction request"}}
 
 Example 5:
-Input: "Do something with this text"
-Output: {{"intent": "unclear", "confidence": 0.3, "possible_intents": ["summarize", "sentiment_analysis"], "reasoning": "Ambiguous request, needs clarification"}}
+Input: "Analyze this text"
+Output: {{"intent": "unclear", "confidence": 0.3, "possible_intents": ["sentiment_analysis", "summarize"], "reasoning": "Ambiguous request - 'analyze' could mean sentiment, summary, or other tasks"}}
 
 Example 6:
 Input: "What are the action items from this meeting?"
