@@ -28,7 +28,7 @@ class InputProcessor:
     # Supported file extensions mapping
     IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png'}
     PDF_EXTENSIONS = {'.pdf'}
-    AUDIO_EXTENSIONS = {'.mp3'}
+    AUDIO_EXTENSIONS = {'.mp3', ".wav", ".m4a"}
     
     def __init__(self):
         # Initialize mimetypes for better detection

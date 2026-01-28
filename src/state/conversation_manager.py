@@ -42,7 +42,7 @@ class ConversationManager:
     - Persistent extracted content for follow-up questions
     """
     
-    MAX_CLARIFICATION_ATTEMPTS = 2
+    MAX_CLARIFICATION_ATTEMPTS = 3
     
     def __init__(self):
         self._sessions: Dict[str, ConversationState] = {}
