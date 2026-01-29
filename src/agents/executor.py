@@ -139,8 +139,19 @@ class ExecutorAgent:
         Assignment requirement: 1-line + 3 bullets + 5-sentence summary.
         
         Returns structured summary in all three formats.
+        Handles long content by truncating to fit model token limits.
         """
         formats = parameters.get('formats', ['one_line', 'three_bullets', 'five_sentence'])
+        
+        # TOKEN LIMIT HANDLING
+        # llama-3.1-8b has 6000 TPM limit - leave room for prompt + response
+        # Estimate ~4 chars per token, max 3000 tokens for content = 12,000 chars
+        MAX_CONTENT_CHARS = 12000
+        
+        if len(content) > MAX_CONTENT_CHARS:
+            # Take beginning and end to preserve context
+            half = MAX_CONTENT_CHARS // 2
+            content = content[:half] + f"\n\n[... {len(content) - MAX_CONTENT_CHARS} characters omitted ...]\n\n" + content[-half:]
         
         prompt = f"""Summarize this content. Return ONLY a JSON object:
 

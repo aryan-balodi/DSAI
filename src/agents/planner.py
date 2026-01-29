@@ -241,11 +241,19 @@ class PlannerAgent:
         
         # Combine input and extracted content
         content_to_analyze = user_input
+        has_prior_content = bool(extracted_content and len(extracted_content.strip()) > 100)
+        
         if extracted_content:
-            content_to_analyze = f"User request: {user_input}\n\nExtracted content:\n{extracted_content}"
+            preview_length = min(500, len(extracted_content))
+            content_to_analyze = f"User request: {user_input}\n\nExtracted content preview ({len(extracted_content)} total chars):\n{extracted_content[:preview_length]}..."
+        
+        # Build context indicator for prompt
+        context_note = ""
+        if has_prior_content:
+            context_note = f"\n⚠️ IMPORTANT: There IS extracted content available ({len(extracted_content)} characters). Pronouns like 'it', 'this' refer to this content.\n"
         
         prompt = f"""You are an intent classifier for an agentic system. Analyze the user's request and determine their goal.
-
+{context_note}
 SUPPORTED TASKS:
 - summarize: User wants a summary (1-line, three_bullets, 5-sentence format)
 - sentiment_analysis: Analyze emotional tone/sentiment
@@ -256,10 +264,11 @@ SUPPORTED TASKS:
 - general_chat: Casual conversation, greetings, help requests
 
 IMPORTANT RULES:
-1. If user request is ambiguous (e.g., "analyze", "check this", "do something"), return confidence < 0.5
-2. If multiple tasks are equally plausible, list them in possible_intents and return confidence < 0.7
-3. Only return high confidence (>0.7) if the request EXPLICITLY mentions the task
-4. "Analyze" without context is ALWAYS ambiguous - could be sentiment, summary, or other tasks
+1. If user request is ambiguous (e.g., "analyze", "check this", "do something") AND there's NO extracted content, return confidence < 0.5
+2. If there IS extracted content AND user says "summarize it", "analyze it", "explain it" etc., that's CLEAR - return confidence > 0.8
+3. If multiple tasks are equally plausible, list them in possible_intents and return confidence < 0.7
+4. Only return low confidence if request is TRULY unclear even with context
+5. Pronouns like "it", "this", "that" are CLEAR when extracted content exists
 
 FEW-SHOT EXAMPLES:
 
@@ -280,10 +289,14 @@ Input: "What does this say?" [with image]
 Output: {{"intent": "text_extraction", "confidence": 0.8, "reasoning": "Simple extraction request"}}
 
 Example 5:
-Input: "Analyze this text"
-Output: {{"intent": "unclear", "confidence": 0.3, "possible_intents": ["sentiment_analysis", "summarize"], "reasoning": "Ambiguous request - 'analyze' could mean sentiment, summary, or other tasks"}}
+Input: "Analyze this text" [NO extracted content]
+Output: {{"intent": "unclear", "confidence": 0.3, "possible_intents": ["sentiment_analysis", "summarize"], "reasoning": "Ambiguous request without context - 'analyze' could mean sentiment, summary, or other tasks"}}
 
 Example 6:
+Input: "summarise it" [WITH extracted content from previous turn]
+Output: {{"intent": "summarize", "confidence": 0.9, "reasoning": "Clear summarize request with pronoun referring to extracted content"}}
+
+Example 7:
 Input: "What are the action items from this meeting?"
 Output: {{"intent": "question_answer", "confidence": 0.9, "reasoning": "Specific extraction question about action items"}}
 

@@ -9,13 +9,15 @@ Simple REST API with:
 
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
 import uuid
 import os
 import tempfile
 import shutil
+from pathlib import Path
 
 # Import our orchestration layer
 from src.orchestration.agent_graph import run_agent
@@ -55,7 +57,10 @@ class ProcessResponse(BaseModel):
 
 @app.get("/")
 async def root():
-    """Root endpoint with API information."""
+    """Serve the frontend HTML."""
+    html_path = Path(__file__).parent.parent.parent / "frontend" / "index.html"
+    if html_path.exists():
+        return FileResponse(html_path)
     return {
         "message": "Agentic Application API",
         "version": "1.0.0",

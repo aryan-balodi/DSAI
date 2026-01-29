@@ -221,6 +221,16 @@ def planner_node(state: AgentState) -> AgentState:
             state['needs_clarification'] = True
             state['clarification_question'] = planner_result['clarification_question']
             state['trace'].append(f"planner_needs_clarification_confidence_{planner_result['confidence']}")
+            
+            # CRITICAL: Store user's text input in session for follow-up
+            # When user pastes long text and gets clarification, we need to preserve it
+            if state['session_id'] and state['input_type'] == 'text' and state.get('user_input'):
+                conversation_manager.store_extracted_content(
+                    session_id=state['session_id'],
+                    content=state['user_input'],
+                    metadata={'type': 'text', 'source': 'user_input_pending_clarification'}
+                )
+                state['trace'].append('stored_text_for_clarification_followup')
         else:
             state['needs_clarification'] = False
             state['trace'].append(f"planner_ready_to_execute_intent_{planner_result['intent']}")
