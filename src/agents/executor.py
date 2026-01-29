@@ -162,10 +162,19 @@ Respond in this JSON format:
     "five_sentence": "First sentence. Second sentence. Third sentence. Fourth sentence. Fifth sentence."
 }}"""
         
-        response = self._call_llm(prompt, max_tokens=800)
+        response = self._call_llm(prompt, max_tokens=1500)
         
         try:
-            summary = json.loads(response)
+            # Clean response - sometimes LLM adds markdown code blocks
+            cleaned_response = response.strip()
+            if cleaned_response.startswith('```'):
+                # Remove markdown code blocks
+                cleaned_response = cleaned_response.split('```')[1]
+                if cleaned_response.startswith('json'):
+                    cleaned_response = cleaned_response[4:]
+                cleaned_response = cleaned_response.strip()
+            
+            summary = json.loads(cleaned_response)
             
             # Check if response is an error
             if summary.get('error'):
@@ -278,27 +287,82 @@ Respond in this JSON format:
         parameters: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
-        Assignment requirement: Detect URL → fetch transcript (or fallback).
-        Actual fetching happens in youtube_tool (Step 3).
+        Fetch YouTube transcript and optionally summarize.
+        
+        Uses youtube_tool.py for transcript fetching.
         """
         url = parameters.get('url', '')
+        summarize = parameters.get('summarize', False)
         
         # Validate URL format
         if not url or ('youtube.com' not in url.lower() and 'youtu.be' not in url.lower()):
             return {
                 'url': url,
                 'transcript': None,
-                'error': 'Invalid or missing YouTube URL',
-                'status': 'failed'
+                'success': False,
+                'error': 'Invalid or missing YouTube URL'
             }
         
-        # Placeholder - actual implementation in Step 3 with youtube-transcript-api
-        return {
-            'url': url,
-            'transcript': 'Transcript will be fetched by youtube_tool.py in Step 3',
-            'status': 'tool_pending',
-            'note': 'This is a valid YouTube URL. Tool implementation coming next.'
-        }
+        try:
+            # Import and use YouTube tool
+            from src.tools.youtube_tool import fetch_youtube_transcript
+            
+            result = fetch_youtube_transcript(url)
+            
+            # Check if fetching succeeded
+            if not result.get('success', False):
+                return {
+                    'url': url,
+                    'video_id': result.get('video_id', 'unknown'),
+                    'transcript': None,
+                    'success': False,
+                    'error': result.get('error', 'Unknown error fetching transcript')
+                }
+            
+            transcript = result.get('transcript', '')
+            video_id = result.get('video_id', 'unknown')
+            duration = result.get('duration', 0)
+            language = result.get('language', 'unknown')
+            
+            # If summarize requested, generate summary
+            summary = None
+            if summarize and transcript:
+                summary_result = self._execute_summarize(
+                    content=transcript,
+                    parameters={'format': 'comprehensive'}
+                )
+                summary = summary_result.get('summary', {})
+            
+            return {
+                'url': url,
+                'video_id': video_id,
+                'transcript': transcript,
+                'summary': summary,
+                'duration': duration,
+                'language': language,
+                'success': True,
+                'error': None,
+                'metadata': {
+                    'transcript_length': len(transcript),
+                    'word_count': len(transcript.split())
+                }
+            }
+        
+        except ImportError as e:
+            return {
+                'url': url,
+                'transcript': None,
+                'success': False,
+                'error': f'YouTube tool not available: {str(e)}'
+            }
+        
+        except Exception as e:
+            return {
+                'url': url,
+                'transcript': None,
+                'success': False,
+                'error': f'Error processing YouTube URL: {str(e)}'
+            }
     
     def _execute_question_answer(
         self,

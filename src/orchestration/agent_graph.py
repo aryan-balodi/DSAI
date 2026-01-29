@@ -59,6 +59,15 @@ def input_processing_node(state: AgentState) -> AgentState:
     state['trace'].append('input_processing_start')
     
     try:
+        # Check if session has previously extracted content (for follow-up messages)
+        session = conversation_manager.get_session(state['session_id'])
+        if session and session.extracted_content and not state.get('file_path'):
+            # Reuse previously extracted content from session
+            state['extracted_content'] = session.extracted_content
+            state['input_metadata'] = session.extraction_metadata
+            state['input_type'] = session.extraction_metadata.get('type', 'text')
+            state['trace'].append(f"using_stored_content_type_{state['input_type']}")
+        
         # Detect input type
         input_type, metadata = input_processor.detect_input_type(
             text_input=state['user_input'],
@@ -66,8 +75,10 @@ def input_processing_node(state: AgentState) -> AgentState:
             filename=state.get('file_path')
         )
         
-        state['input_type'] = input_type
-        state['input_metadata'] = metadata
+        # Only update if new file is provided
+        if state.get('file_path'):
+            state['input_type'] = input_type
+            state['input_metadata'] = metadata
         
         # For file inputs, validate size
         if state.get('file_path') and 'size_bytes' in metadata:
@@ -87,31 +98,67 @@ def input_processing_node(state: AgentState) -> AgentState:
             state['trace'].append(f'extraction_start_type_{input_type}')
             
             try:
+                extraction_result = None
+                
                 if input_type == 'pdf':
                     # Import tool only when needed
                     from src.tools.pdf_tool import extract_pdf
                     extraction_result = extract_pdf(state['file_path'])
+                    
+                    # CHECK SUCCESS
+                    if not extraction_result.get('success', False):
+                        error_msg = extraction_result.get('error', 'Unknown PDF extraction error')
+                        state['error'] = f"PDF extraction failed: {error_msg}"
+                        state['trace'].append(f'extraction_pdf_failed')
+                        return state
+                    
                     state['extracted_content'] = extraction_result.get('text', '')
-                    state['trace'].append(f"extraction_pdf_success_pages_{extraction_result.get('pages', 0)}")
+                    pages = extraction_result.get('pages', 0)
+                    strategy = extraction_result.get('strategy', 'unknown')
+                    state['trace'].append(f"extraction_pdf_success_pages_{pages}_strategy_{strategy}")
                 
                 elif input_type == 'image':
                     from src.tools.ocr_tool import extract_image_text
                     extraction_result = extract_image_text(state['file_path'])
+                    
+                    # CHECK SUCCESS
+                    if not extraction_result.get('success', False):
+                        error_msg = extraction_result.get('error', 'Unknown OCR error')
+                        state['error'] = f"Image OCR failed: {error_msg}"
+                        state['trace'].append(f'extraction_ocr_failed')
+                        return state
+                    
                     state['extracted_content'] = extraction_result.get('text', '')
                     confidence = extraction_result.get('confidence', 0)
-                    state['trace'].append(f"extraction_ocr_success_confidence_{confidence}")
+                    strategy = extraction_result.get('strategy', 'unknown')
+                    state['trace'].append(f"extraction_ocr_success_confidence_{confidence}_strategy_{strategy}")
                 
                 elif input_type == 'audio':
                     from src.tools.audio_tool import transcribe_audio
                     extraction_result = transcribe_audio(state['file_path'])
+                    
+                    # CHECK SUCCESS
+                    if not extraction_result.get('success', False):
+                        error_msg = extraction_result.get('error', 'Unknown transcription error')
+                        state['error'] = f"Audio transcription failed: {error_msg}"
+                        state['trace'].append(f'extraction_audio_failed')
+                        return state
+                    
                     state['extracted_content'] = extraction_result.get('transcript', '')
                     duration = extraction_result.get('duration', 0)
-                    state['trace'].append(f"extraction_audio_success_duration_{duration}s")
+                    language = extraction_result.get('language', 'unknown')
+                    state['trace'].append(f"extraction_audio_success_duration_{duration}s_lang_{language}")
                     # Store duration in metadata for later use
                     metadata['duration'] = duration
                 
+                # Validate extracted content is not empty
+                if not state.get('extracted_content') or not state['extracted_content'].strip():
+                    state['error'] = f"No content extracted from {input_type} file. File may be empty or corrupted."
+                    state['trace'].append(f'extraction_empty_content_{input_type}')
+                    return state
+                
                 # Store extracted content in conversation
-                if state['session_id'] and state.get('extracted_content'):
+                if state['session_id']:
                     conversation_manager.store_extracted_content(
                         session_id=state['session_id'],
                         content=state['extracted_content'],
@@ -120,14 +167,14 @@ def input_processing_node(state: AgentState) -> AgentState:
             
             except ImportError as e:
                 # Tools not implemented yet - graceful fallback
-                state['error'] = f"Extraction tool not implemented: {input_type}_tool.py"
+                state['error'] = f"Extraction tool not available: {str(e)}"
                 state['trace'].append(f'extraction_tool_missing_{input_type}')
                 return state
             
             except Exception as e:
                 # Extraction failed - log but don't stop workflow
-                state['error'] = f"Extraction failed for {input_type}: {str(e)}"
-                state['trace'].append(f'extraction_failed_{input_type}')
+                state['error'] = f"Extraction crashed for {input_type}: {str(e)}"
+                state['trace'].append(f'extraction_exception_{input_type}')
                 return state
         
         # Store user message in conversation context
@@ -373,6 +420,12 @@ def run_agent(
     Returns:
         Final formatted response with results and trace
     """
+    # Ensure session exists (create if new)
+    if not conversation_manager.get_session(session_id):
+        # Create session with provided ID
+        from src.state.conversation_manager import ConversationState
+        conversation_manager._sessions[session_id] = ConversationState(session_id=session_id)
+    
     # Initialize state
     initial_state: AgentState = {
         'session_id': session_id,

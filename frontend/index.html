@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agentic Application</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 800px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .input-section {
+            margin-bottom: 30px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            resize: vertical;
+            min-height: 100px;
+            transition: border-color 0.3s;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .file-upload {
+            margin-bottom: 20px;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            cursor: pointer;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .file-button {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #f5f5f5;
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .file-button:hover {
+            background: #e8e8e8;
+            border-color: #667eea;
+        }
+
+        .file-name {
+            margin-left: 10px;
+            color: #667eea;
+            font-weight: 500;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 14px 32px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 100%;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .result-section {
+            margin-top: 30px;
+            display: none;
+        }
+
+        .result-section.show {
+            display: block;
+        }
+
+        .result-box {
+            background: #f9f9f9;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .result-box.error {
+            border-left-color: #e74c3c;
+            background: #ffebee;
+        }
+
+        .result-box.clarification {
+            border-left-color: #f39c12;
+            background: #fff9e6;
+        }
+
+        .result-title {
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .result-content {
+            color: #555;
+            line-height: 1.6;
+            white-space: pre-wrap;
+        }
+
+        .session-info {
+            font-size: 12px;
+            color: #999;
+            margin-top: 10px;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .trace {
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-family: monospace;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+
+        .new-conversation {
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+            margin-top: 10px;
+        }
+
+        .new-conversation:hover {
+            background: #f5f5ff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 Agentic Application</h1>
+        <p class="subtitle">Multi-agent system supporting text, PDF, images, audio, and YouTube</p>
+
+        <div class="input-section">
+            <label for="message">Your Message</label>
+            <textarea 
+                id="message" 
+                placeholder="Enter your request (e.g., 'Summarize this document', 'Analyze sentiment', 'Explain this code')..."
+            ></textarea>
+        </div>
+
+        <div class="file-upload">
+            <label>Upload File (Optional)</label>
+            <div class="file-input-wrapper">
+                <label class="file-button" for="file-input">
+                    📎 Choose File
+                </label>
+                <input type="file" id="file-input" accept=".pdf,.jpg,.jpeg,.png,.mp3">
+                <span class="file-name" id="file-name"></span>
+            </div>
+        </div>
+
+        <button id="submit-btn" onclick="submitRequest()">Process Request</button>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p style="margin-top: 10px; color: #666;">Processing...</p>
+        </div>
+
+        <div class="result-section" id="result-section">
+            <div id="result-container"></div>
+            <button class="new-conversation" onclick="newConversation()">Start New Conversation</button>
+        </div>
+    </div>
+
+    <script>
+        let sessionId = null;
+
+        // File input handling
+        document.getElementById('file-input').addEventListener('change', function(e) {
+            const fileName = e.target.files[0]?.name || '';
+            document.getElementById('file-name').textContent = fileName ? `Selected: ${fileName}` : '';
+        });
+
+        async function submitRequest() {
+            const message = document.getElementById('message').value.trim();
+            const fileInput = document.getElementById('file-input');
+            const file = fileInput.files[0];
+
+            if (!message && !file) {
+                alert('Please enter a message or upload a file');
+                return;
+            }
+
+            // Show loading
+            document.getElementById('loading').classList.add('show');
+            document.getElementById('submit-btn').disabled = true;
+            document.getElementById('result-section').classList.remove('show');
+
+            try {
+                // Create FormData
+                const formData = new FormData();
+                formData.append('message', message);
+                if (sessionId) {
+                    formData.append('session_id', sessionId);
+                }
+                if (file) {
+                    formData.append('file', file);
+                }
+
+                // Call API
+                const response = await fetch('http://localhost:8000/process', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                
+                // Store session ID
+                sessionId = data.session_id;
+
+                // Display result
+                displayResult(data);
+
+            } catch (error) {
+                displayError('Network error: ' + error.message);
+            } finally {
+                document.getElementById('loading').classList.remove('show');
+                document.getElementById('submit-btn').disabled = false;
+            }
+        }
+
+        function displayResult(data) {
+            const container = document.getElementById('result-container');
+            container.innerHTML = '';
+
+            if (data.status === 'needs_clarification') {
+                // Clarification needed
+                const box = createResultBox('Clarification Needed', data.clarification_question, 'clarification');
+                container.appendChild(box);
+                
+                // Add note that file is remembered
+                if (document.getElementById('file-name').textContent) {
+                    const fileNote = document.createElement('div');
+                    fileNote.style.cssText = 'margin-top: 10px; padding: 8px; background: #e3f2fd; border-radius: 4px; font-size: 12px; color: #1976d2;';
+                    fileNote.textContent = '📎 Your uploaded file is remembered for this conversation';
+                    box.appendChild(fileNote);
+                }
+                
+                // Keep input visible for response - only clear the text message
+                document.getElementById('message').value = '';
+                // File display stays visible - don't touch file input
+                
+            } else if (data.status === 'error') {
+                // Error
+                const box = createResultBox('Error', data.error, 'error');
+                container.appendChild(box);
+                
+            } else if (data.status === 'success') {
+                // Success - format result
+                const formatted = formatResult(data.result);
+                const box = createResultBox('Result', formatted, 'success');
+                container.appendChild(box);
+            }
+
+            // Add trace if available
+            if (data.trace && data.trace.length > 0) {
+                const trace = document.createElement('div');
+                trace.className = 'trace';
+                trace.textContent = 'Execution Trace:\n' + data.trace.join(' → ');
+                container.appendChild(trace);
+            }
+
+            // Add session info
+            const sessionInfo = document.createElement('div');
+            sessionInfo.className = 'session-info';
+            sessionInfo.textContent = `Session ID: ${data.session_id}`;
+            container.appendChild(sessionInfo);
+
+            document.getElementById('result-section').classList.add('show');
+        }
+
+        function createResultBox(title, content, type) {
+            const box = document.createElement('div');
+            box.className = `result-box ${type}`;
+            
+            const titleEl = document.createElement('div');
+            titleEl.className = 'result-title';
+            titleEl.textContent = title;
+            
+            const contentEl = document.createElement('div');
+            contentEl.className = 'result-content';
+            contentEl.textContent = content;
+            
+            box.appendChild(titleEl);
+            box.appendChild(contentEl);
+            
+            return box;
+        }
+
+        function formatResult(result) {
+            if (!result) return 'No result';
+            
+            // Format as JSON for now (can be improved)
+            return JSON.stringify(result, null, 2);
+        }
+
+        function displayError(message) {
+            const container = document.getElementById('result-container');
+            container.innerHTML = '';
+            const box = createResultBox('Error', message, 'error');
+            container.appendChild(box);
+            document.getElementById('result-section').classList.add('show');
+        }
+
+        function newConversation() {
+            sessionId = null;
+            document.getElementById('message').value = '';
+            document.getElementById('file-input').value = '';
+            document.getElementById('file-name').textContent = '';
+            document.getElementById('result-section').classList.remove('show');
+        }
+
+        // Allow Enter to submit (Shift+Enter for new line)
+        document.getElementById('message').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                submitRequest();
+            }
+        });
+    </script>
+</body>
+</html>

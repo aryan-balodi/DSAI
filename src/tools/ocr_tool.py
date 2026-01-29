@@ -176,20 +176,25 @@ def clean_ocr_text(text: str) -> str:
     Clean up OCR-extracted text.
     
     Removes artifacts, fixes spacing, normalizes whitespace.
+    IMPORTANT: Does NOT do aggressive replacements that break code (like O->0).
     """
     if not text:
         return ''
     
     import re
     
-    # Remove excessive whitespace
-    text = re.sub(r'\s+', ' ', text)
+    # Remove excessive whitespace (preserve line breaks for code)
+    lines = text.split('\n')
+    cleaned_lines = []
     
-    # Remove common OCR artifacts
-    text = text.replace('|', 'I')  # Common mistake
-    text = text.replace('O', '0')  # In code contexts
+    for line in lines:
+        # Normalize spaces within line, but keep line structure
+        cleaned_line = re.sub(r'[ \t]+', ' ', line)
+        cleaned_lines.append(cleaned_line)
     
-    # Fix spacing around punctuation
+    text = '\n'.join(cleaned_lines)
+    
+    # Fix spacing around punctuation (only for obvious cases)
     text = re.sub(r'\s+([.,;:!?])', r'\1', text)
     
     # Remove leading/trailing whitespace
