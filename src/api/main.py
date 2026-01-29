@@ -84,7 +84,7 @@ async def health_check():
 
 @app.post("/process", response_model=ProcessResponse)
 async def process_input(
-    message: str = Form(...),
+    message: str = Form(""),
     session_id: Optional[str] = Form(None),
     file: Optional[UploadFile] = File(None)
 ):
