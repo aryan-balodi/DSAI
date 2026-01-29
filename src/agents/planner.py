@@ -96,6 +96,11 @@ class PlannerAgent:
         if input_metadata and input_metadata.get('type') == 'audio':
             return self._handle_audio_input(user_input, extracted_content, input_metadata)
         
+        # SPECIAL CASE: YouTube URLs auto-fetch transcript
+        youtube_url = extract_youtube_url(user_input)
+        if youtube_url:
+            return self._handle_youtube_input(user_input, youtube_url)
+        
         # Get conversation context
         session = conversation_manager.get_session(session_id)
         context = conversation_manager.get_conversation_context(session_id)
@@ -165,18 +170,22 @@ class PlannerAgent:
         Assignment requirement: Audio files → transcribe + summarize (3 formats)
         High confidence because this is a defined workflow.
         """
-        # Get file path from metadata
+        # Extract metadata
         file_path = input_metadata.get('path') if input_metadata else None
+        duration = input_metadata.get('duration', 0) if input_metadata else 0
+        language = input_metadata.get('language', 'unknown') if input_metadata else 'unknown'
         
         plan = {
             'task': IntentType.AUDIO_TRANSCRIBE_SUMMARIZE,
-            'input': file_path or user_input,
+            'input': extracted_content or '',  # Pass the transcript, not file path
             'user_query': user_input,
             'parameters': {
                 'transcribe': True,
                 'summarize': True,
                 'formats': ['one_line', 'three_bullets', 'five_sentence'],
                 'include_duration': True,
+                'duration': duration,  # Pass duration from metadata
+                'language': language,
                 'file_path': file_path
             }
         }
@@ -188,6 +197,38 @@ class PlannerAgent:
             'plan': plan,
             'clarification_question': None,
             'reasoning': 'Audio file detected - automatic transcription and summarization'
+        }
+    
+    def _handle_youtube_input(
+        self,
+        user_input: str,
+        youtube_url: str
+    ) -> Dict[str, Any]:
+        """
+        Handle YouTube URL with automatic transcript fetching.
+        
+        High confidence for YouTube URLs.
+        """
+        # Check if user wants summary too
+        summarize = any(word in user_input.lower() for word in ['summarize', 'summary', 'explain'])
+        
+        plan = {
+            'task': IntentType.YOUTUBE,
+            'input': user_input,
+            'user_query': user_input,
+            'parameters': {
+                'url': youtube_url,
+                'summarize': summarize
+            }
+        }
+        
+        return {
+            'action': 'execute',
+            'intent': IntentType.YOUTUBE,
+            'confidence': 0.95,
+            'plan': plan,
+            'clarification_question': None,
+            'reasoning': f'YouTube URL detected: {youtube_url}'
         }
     
     def _build_analysis_prompt(

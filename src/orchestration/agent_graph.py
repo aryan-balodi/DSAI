@@ -148,8 +148,10 @@ def input_processing_node(state: AgentState) -> AgentState:
                     duration = extraction_result.get('duration', 0)
                     language = extraction_result.get('language', 'unknown')
                     state['trace'].append(f"extraction_audio_success_duration_{duration}s_lang_{language}")
-                    # Store duration in metadata for later use
+                    # Store audio metadata for planner to detect auto-summarization
                     metadata['duration'] = duration
+                    metadata['type'] = 'audio'  # Critical for planner audio detection
+                    metadata['language'] = language
                 
                 # Validate extracted content is not empty
                 if not state.get('extracted_content') or not state['extracted_content'].strip():

@@ -78,20 +78,24 @@ def fetch_youtube_transcript(url: str) -> Dict[str, Any]:
         }
     
     try:
-        # Fetch transcript
-        transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
+        # New API: instantiate and use fetch() instead of get_transcript()
+        api = YouTubeTranscriptApi()
+        transcript_list = api.fetch(video_id)
         
         # Extract text and duration
         transcript_parts = []
         total_duration = 0.0
         
         for entry in transcript_list:
-            text = entry['text'].strip()
+            # Entry is an object, not a dict - use attributes
+            text = entry.text.strip() if hasattr(entry, 'text') else ''
             if text:
                 transcript_parts.append(text)
             
             # Track duration
-            end_time = entry.get('start', 0) + entry.get('duration', 0)
+            start = entry.start if hasattr(entry, 'start') else 0
+            duration = entry.duration if hasattr(entry, 'duration') else 0
+            end_time = start + duration
             if end_time > total_duration:
                 total_duration = end_time
         
@@ -103,10 +107,10 @@ def fetch_youtube_transcript(url: str) -> Dict[str, Any]:
         
         # Try to get language info
         try:
-            transcript_info = YouTubeTranscriptApi.list_transcripts(video_id)
+            transcript_info = api.list(video_id)
             language = 'en'  # Default
             for transcript in transcript_info:
-                if transcript.is_generated or transcript.is_translatable:
+                if hasattr(transcript, 'language_code'):
                     language = transcript.language_code
                     break
         except Exception:

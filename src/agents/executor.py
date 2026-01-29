@@ -142,37 +142,40 @@ class ExecutorAgent:
         """
         formats = parameters.get('formats', ['one_line', 'three_bullets', 'five_sentence'])
         
-        prompt = f"""Summarize the following content in exactly three formats:
+        prompt = f"""Summarize this content. Return ONLY a JSON object:
 
-1. ONE-LINE SUMMARY: A single concise sentence (max 20 words)
-2. THREE BULLETS: Exactly 3 bullet points covering key points
-3. FIVE-SENTENCE SUMMARY: Exactly 5 sentences providing comprehensive overview
-
-Content to summarize:
+Content:
 {content}
 
-Respond in this JSON format:
+Return this exact JSON structure (no additional text):
 {{
-    "one_line": "your one-line summary here",
-    "three_bullets": [
-        "first key point",
-        "second key point",
-        "third key point"
-    ],
-    "five_sentence": "First sentence. Second sentence. Third sentence. Fourth sentence. Fifth sentence."
-}}"""
+    "one_line": "single sentence max 20 words",
+    "three_bullets": ["bullet 1", "bullet 2", "bullet 3"],
+    "five_sentence": "Sentence 1. Sentence 2. Sentence 3. Sentence 4. Sentence 5."
+}}
+
+CRITICAL: Your response must be ONLY the JSON object above, nothing else."""
         
-        response = self._call_llm(prompt, max_tokens=1500)
+        response = self._call_llm(prompt, max_tokens=2500)
         
         try:
-            # Clean response - sometimes LLM adds markdown code blocks
+            # Extract JSON from response - handle multiple formats
+            import re
+            import json
+            
             cleaned_response = response.strip()
-            if cleaned_response.startswith('```'):
-                # Remove markdown code blocks
-                cleaned_response = cleaned_response.split('```')[1]
-                if cleaned_response.startswith('json'):
-                    cleaned_response = cleaned_response[4:]
-                cleaned_response = cleaned_response.strip()
+            
+            # Remove markdown code blocks if present
+            if '```' in cleaned_response:
+                code_block_match = re.search(r'```(?:json)?\s*(\{[\s\S]*?\})\s*```', cleaned_response)
+                if code_block_match:
+                    cleaned_response = code_block_match.group(1)
+            
+            # If no code blocks, find the JSON object
+            if not cleaned_response.startswith('{'):
+                json_match = re.search(r'\{[\s\S]*\}', cleaned_response)
+                if json_match:
+                    cleaned_response = json_match.group(0)
             
             summary = json.loads(cleaned_response)
             
@@ -213,10 +216,18 @@ Respond in this JSON format:
     "justification": "one-line explanation of why this sentiment"
 }}"""
         
-        response = self._call_llm(prompt, max_tokens=300)
+        response = self._call_llm(prompt, max_tokens=800)
         
         try:
-            sentiment = json.loads(response)
+            # Extract JSON from response
+            import re
+            json_match = re.search(r'\{[\s\S]*\}', response.strip())
+            if json_match:
+                cleaned_response = json_match.group(0)
+            else:
+                cleaned_response = response.strip()
+            
+            sentiment = json.loads(cleaned_response)
             # Ensure confidence is a float
             sentiment['confidence'] = float(sentiment.get('confidence', 0.5))
             return sentiment
@@ -236,33 +247,57 @@ Respond in this JSON format:
         """
         Assignment requirement: Explain code, detect bugs, mention time complexity.
         """
-        prompt = f"""Analyze the following code and provide:
-1. Programming language detection
-2. Explanation of what the code does
-3. Any bugs or issues found
-4. Time complexity analysis
+        prompt = f"""Analyze this code. Return ONLY a JSON object with these exact fields:
 
-Code:
+Code to analyze:
 {code}
 
-Respond in this JSON format:
+Return this JSON structure (no additional text):
 {{
-    "language": "detected language",
-    "explanation": "clear explanation of what the code does",
-    "bugs": ["bug 1", "bug 2"] or [] if no bugs,
-    "time_complexity": "O(n) or similar notation with brief explanation"
-}}"""
+    "language": "the programming language name",
+    "explanation": "detailed explanation of what the code does",
+    "bugs": ["list of bugs found, or empty array if none"],
+    "time_complexity": "Big O notation with brief explanation"
+}}
+
+CRITICAL: Your response must be ONLY the JSON object above, nothing else."""
         
-        response = self._call_llm(prompt, max_tokens=1000)
+        response = self._call_llm(prompt, max_tokens=3000)
         
         try:
-            analysis = json.loads(response)
-            return analysis
-        except json.JSONDecodeError:
-            # Fallback
+            # Extract JSON from response - handle multiple formats
+            import re
+            import json
+            
+            cleaned_response = response.strip()
+            
+            # Remove markdown code blocks if present
+            if '```' in cleaned_response:
+                # Extract content between ``` markers
+                code_block_match = re.search(r'```(?:json)?\s*(\{[\s\S]*?\})\s*```', cleaned_response)
+                if code_block_match:
+                    cleaned_response = code_block_match.group(1)
+            
+            # If no code blocks, find the JSON object
+            if not cleaned_response.startswith('{'):
+                json_match = re.search(r'\{[\s\S]*\}', cleaned_response)
+                if json_match:
+                    cleaned_response = json_match.group(0)
+            
+            # Parse the JSON
+            analysis = json.loads(cleaned_response)
+            
+            # Validate it has the expected fields
+            if 'language' in analysis and 'explanation' in analysis:
+                return analysis
+            else:
+                raise ValueError("Invalid response structure")
+                
+        except (json.JSONDecodeError, ValueError) as e:
+            # Fallback - try to extract some info from response
             return {
                 'language': 'unknown',
-                'explanation': response[:500] if response else 'Unable to explain code',
+                'explanation': f'Failed to parse analysis. Raw response: {response[:1000]}',
                 'bugs': [],
                 'time_complexity': 'Unable to determine'
             }
@@ -327,11 +362,10 @@ Respond in this JSON format:
             # If summarize requested, generate summary
             summary = None
             if summarize and transcript:
-                summary_result = self._execute_summarize(
+                summary = self._execute_summarization(
                     content=transcript,
-                    parameters={'format': 'comprehensive'}
+                    parameters={'formats': ['one_line', 'three_bullets', 'five_sentence']}
                 )
-                summary = summary_result.get('summary', {})
             
             return {
                 'url': url,
